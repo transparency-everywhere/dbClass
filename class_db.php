@@ -23,7 +23,30 @@ require('config.php');
 function save($string){
         return $string;
 }
+
 class db{
+        public function generateWhere($primary){
+            
+            //if array length is 2 the basic statement is used
+            if(count($primary) == 2){
+                $return = "WHERE $primary[0]='".save($primary[1])."'";
+            }else if(count($primary)>2){
+                //use thrid item of primary array as seperator(OR or and)
+                $return = "WHERE $primary[0]='".save($primary[1])."' ".$primary[2]." ";
+                
+                $arrayCounter = 3;
+                while(isset($primary[$arrayCounter])){
+                    $return .= $primary[$arrayCounter];
+                    $arrayCounter++;
+                    $return .= "='".save($primary[$arrayCounter])."' ".$primary[$arrayCounter+1]." ";
+                    $arrayCounter++;
+                    $arrayCounter++;
+                }
+                
+            }
+            
+            return $return;
+        }
         /**
         *Inserts record with $options into db $table 
         *@param string $table Name of table
@@ -53,19 +76,19 @@ class db{
         *@return int affected rows
         */
 	public function update($table, $options, $primary){
-					
+            $WHERE = $this->generateWhere($primary);
             //generate update query	
             foreach($options AS $row=>$value){
 
                     //only add row to query if value is not empty
-                    if(!empty($value) ||($value == 0)){
+                    if(!empty($value)||($value == 0)){
                             $query[] = " $row='".save($value)."'";
                     }
             }
             $query = implode(',', $query);
 
             
-            mysql_query("UPDATE `$table` SET $query WHERE $primary[0]='".save($primary[1])."'");
+            mysql_query("UPDATE `$table` SET $query $WHERE");
             return mysql_affected_rows();
 	}
         /**
@@ -74,22 +97,40 @@ class db{
         *@primary array Primary id of the record 
         */
         public function delete($table, $primary){
-            mysql_query("DELETE FROM `$table` WHERE $primary[0]='".save($primary[1])."'");
+            
+            $WHERE = $this->generateWhere($primary);
+            mysql_query("DELETE FROM `$table` $WHERE");
             return mysql_affected_rows();
         }
         /**
         *Updates record with $primary[0]=$primary[1] in db $table 
         *@param string $table Name of table
-        *@primary array Primary id of the record
+        *@primary array Primary id of the record( array(columnname, value) )
+        *@collumns array columns that will be selcted ('*' if null)
         *@return array mysql_result 
         */
-        public function select($table, $primary=NULL){
-            if(!empty($primary)){
-                $WHERE = "WHERE $primary[0]='".save($primary[1])."'";
+        public function select($table, $primary=NULL, $columns=NULL, $order=NULL){
+            $WHERE = $this->generateWhere($primary);
+            
+            
+            
+            
+            if(!empty($columns)){
+                foreach($columns AS $column){
+                    $columnQuery[] = '`'.$column.'`';
+                }
+                $columnQuery = join(',', $columnQuery);
             }else{
-                $WHERE = "";
+                $columnQuery = '*';
             }
-                $query = "SELECT * FROM `$table` $WHERE";
+            
+            if(!empty($order)){
+                $ORDER = "ORDER BY $order[0] $order[1]'";
+            }else{
+                $ORDER = "";
+            }
+            
+                $query = "SELECT $columnQuery FROM `$table` $WHERE";
                 $sql = mysql_query($query);
                 if($sql)
                 while($data = mysql_fetch_array($sql)){
@@ -109,8 +150,4 @@ class db{
             return $return;
         }
 
-
-
-
  }
-
