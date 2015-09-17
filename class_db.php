@@ -26,26 +26,44 @@ function save($string){
 
 class db{
         public function generateWhere($primary){
-            
-            //if array length is 2 the basic statement is used
-            if(count($primary) == 2){
-                $return = "WHERE $primary[0]='".save($primary[1])."'";
-            }else if(count($primary)>2){
-                //use thrid item of primary array as seperator(OR or and)
-                $return = "WHERE $primary[0]='".save($primary[1])."' ".$primary[2]." ";
+            if(is_array($primary)){
                 
-                $arrayCounter = 3;
-                while(isset($primary[$arrayCounter])){
-                    $return .= $primary[$arrayCounter];
-                    $arrayCounter++;
-                    $return .= "='".save($primary[$arrayCounter])."' ".$primary[$arrayCounter+1]." ";
-                    $arrayCounter++;
-                    $arrayCounter++;
+                //if array length is 2 the basic statement is used
+                if(count($primary) == 2){
+                    $return = "WHERE `".$primary[0]."`='".save($primary[1])."'";
+                }else if(count($primary)>2){
+                    //use thrid item of primary array as seperator(OR or and)
+                    $return = "WHERE `".$primary[0]."`='".save($primary[1])."' ".$primary[2]." ";
+
+                    $arrayCounter = 3;
+                    while(isset($primary[$arrayCounter])){
+                        $return .= '`'.$primary[$arrayCounter];
+                        $arrayCounter++;
+                        $return .= "`='".save($primary[$arrayCounter])."' ".$primary[$arrayCounter+1]." ";
+                        $arrayCounter++;
+                        $arrayCounter++;
+                    }
+
                 }
-                
+            }else{
+                return 'WHERE '.$primary;
             }
             
             return $return;
+        }
+        public function shiftResult($result, $testColumn){
+            //check if result is array (if result is empty the sql string will be returned)
+            if(!is_array($result)){
+                return array();
+            }
+            
+            
+            //check if collumn which need to be tested exists
+            if(isset($result[$testColumn])){
+                $return[0] = $result;
+                return $return;
+            }
+            return $result;
         }
         /**
         *Inserts record with $options into db $table 
@@ -68,7 +86,8 @@ class db{
 
             mysql_query("INSERT INTO `$table` $query VALUES $values");
             return mysql_insert_id();
-	}        /**
+	}
+        /**
         *Updates record with $primary[0]=$primary[1] in db $table 
         *@param string $table Name of table
         *@param array $options Array with insert values mysql_field_name=>values
@@ -82,7 +101,7 @@ class db{
 
                     //only add row to query if value is not empty
                     if(!empty($value)||($value == 0)){
-                            $query[] = " $row='".save($value)."'";
+                            $query[] = " `$row`='".save($value)."'";
                     }
             }
             $query = implode(',', $query);
@@ -109,7 +128,7 @@ class db{
         *@collumns array columns that will be selcted ('*' if null)
         *@return array mysql_result 
         */
-        public function select($table, $primary=NULL, $columns=NULL, $order=NULL){
+        public function select($table, $primary=NULL, $columns=NULL, $order=NULL, $limit=NULL){
             $WHERE = $this->generateWhere($primary);
             
             
@@ -130,7 +149,14 @@ class db{
                 $ORDER = "";
             }
             
-                $query = "SELECT $columnQuery FROM `$table` $WHERE";
+            if(!empty($limit)){
+                $limit = mysql_real_escape_string($limit);
+                $LIMIT = "LIMIT $limit";
+            }else{
+                $LIMIT = "";
+            }
+            
+                $query = "SELECT $columnQuery FROM `$table` $WHERE $LIMIT";
                 $sql = mysql_query($query);
                 if($sql)
                 while($data = mysql_fetch_array($sql)){
@@ -149,5 +175,22 @@ class db{
 
             return $return;
         }
+        
+        public function query($query){
+            $sql = mysql_query($query);
+                if($sql)
+                while($data = mysql_fetch_array($sql)){
+                    $return[] = $data;
+                }
+                if(empty($return)){
+                    return "the query '$query' didn't return any results";
+                }else{
+                    if(count($return) == 1){
+                        return $return[0];
+                    }else if(count($return) > 1){
+                        return $return;
+                    }
+                }
 
+        }
  }
