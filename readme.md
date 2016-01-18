@@ -42,3 +42,6 @@ DELETE FROM TABLE
 
     $db->delete('tableName', array('id', $insert_id));
 
+
+
+

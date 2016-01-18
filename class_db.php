@@ -20,30 +20,78 @@ limitations under the License.
 
 
 require('config.php');
-function save($string){
-        return $string;
+
+
+
+class escape{
+    public static function sql($string){
+        //@speed
+        //@sec
+        $db = new db();
+        return $db->escape($string);
+    }
 }
 
 class db{
+        private $pdoDB;
+        public function __construct(){
+            try{
+                $this->pdoDB = new PDO('mysql:host='.uni_config_database_host.';dbname='.uni_config_database_name.';charset=utf8', uni_config_database_user, uni_config_database_password);
+            } catch (PDOException $e) {
+                echo $e->getMessage();
+            }
+        }
+        public function __destruct() {
+            $this->pdoDB = null;
+        }
+        public static function escape($string){
+            //@sec
+            $db = new db();
+            return substr($db->pdoDB->quote($string), 1, -1);
+        }
+        public function importFile($filePath){
+        // works regardless of statements emulation
+        $this->pdoDB->setAttribute(PDO::ATTR_EMULATE_PREPARES, 0);
+        if(!is_readable($filePath)){
+        }
+
+        $file = file_get_contents($filePath, true);
+
+//        $sql = "
+//        DELETE FROM car; 
+//        INSERT INTO car(name, type) VALUES ('car1', 'coupe'); 
+//        INSERT INTO car(name, type) VALUES ('car2', 'coupe');
+//        ";
+
+        try {
+            $this->pdoDB->exec($file);
+        }
+        catch (PDOException $e)
+        {
+            echo $e->getMessage();
+            die();
+        }
+        }
         public function generateWhere($primary){
             if(is_array($primary)){
-                
                 //if array length is 2 the basic statement is used
                 if(count($primary) == 2){
-                    $return = "WHERE `".$primary[0]."`='".save($primary[1])."'";
+                    $return = "WHERE `".$primary[0]."`='".escape::sql($primary[1])."'";
                 }else if(count($primary)>2){
                     //use thrid item of primary array as seperator(OR or and)
-                    $return = "WHERE `".$primary[0]."`='".save($primary[1])."' ".$primary[2]." ";
+                    $return = "WHERE `".$primary[0]."`='".escape::sql($primary[1])."' ".$primary[2]." ";
 
                     $arrayCounter = 3;
                     while(isset($primary[$arrayCounter])){
                         $return .= '`'.$primary[$arrayCounter];
                         $arrayCounter++;
-                        $return .= "`='".save($primary[$arrayCounter])."' ".$primary[$arrayCounter+1]." ";
+                        $return .= "`='".escape::sql($primary[$arrayCounter])."' ";
                         $arrayCounter++;
+                        if(isset($primary[$arrayCounter])){
+                            $return .= $primary[$arrayCounter]." ";
+                        }
                         $arrayCounter++;
                     }
-
                 }
             }else{
                 return 'WHERE '.$primary;
@@ -71,22 +119,21 @@ class db{
         *@param array $options Array with insert values mysql_field_name=>values
         *@return int auto_increment value of added record 
         */
-	public function insert($table, $options){
-					
-            //generate update query	
+    public function insert($table, $options){
+                    
+            //generate update query 
             foreach($options AS $row=>$value){
-                    $query[] = "`".save($row)."`";
-                    $values[] = "'".save($value)."'";
+                    $query[] = "`".escape::sql($row)."`";
+                    $values[] = "'".escape::sql($value)."'";
             }
 
 
             $query = "(".implode(',', $query).")";
             $values = "(".implode(',', $values).");";
-
-
-            mysql_query("INSERT INTO `$table` $query VALUES $values");
-            return mysql_insert_id();
-	}
+            
+            $result = $this->pdoDB->exec("INSERT INTO `$table` $query VALUES $values");
+            return $this->pdoDB->lastInsertId();
+    }
         /**
         *Updates record with $primary[0]=$primary[1] in db $table 
         *@param string $table Name of table
@@ -94,32 +141,28 @@ class db{
         *@param primary array Primary id of the record
         *@return int affected rows
         */
-	public function update($table, $options, $primary){
+    public function update($table, $options, $primary){
             $WHERE = $this->generateWhere($primary);
-            //generate update query	
+            //generate update query 
             foreach($options AS $row=>$value){
 
                     //only add row to query if value is not empty
                     if(!empty($value)||($value == 0)){
-                            $query[] = " `$row`='".save($value)."'";
+                            $query[] = " `$row`='".escape::sql($value)."'";
                     }
             }
             $query = implode(',', $query);
 
-            
-            mysql_query("UPDATE `$table` SET $query $WHERE");
-            return mysql_affected_rows();
-	}
+            return $this->pdoDB->exec("UPDATE `$table` SET $query $WHERE");
+    }
         /**
         *Updates record with $primary[0]=$primary[1] in db $table 
         *@param string $table Name of table
         *@primary array Primary id of the record 
         */
         public function delete($table, $primary){
-            
             $WHERE = $this->generateWhere($primary);
-            mysql_query("DELETE FROM `$table` $WHERE");
-            return mysql_affected_rows();
+            return $this->pdoDB->exec("DELETE FROM `$table` $WHERE");
         }
         /**
         *Updates record with $primary[0]=$primary[1] in db $table 
@@ -130,10 +173,6 @@ class db{
         */
         public function select($table, $primary=NULL, $columns=NULL, $order=NULL, $limit=NULL){
             $WHERE = $this->generateWhere($primary);
-            
-            
-            
-            
             if(!empty($columns)){
                 foreach($columns AS $column){
                     $columnQuery[] = '`'.$column.'`';
@@ -144,7 +183,7 @@ class db{
             }
             
             if(!empty($order)){
-                $ORDER = "ORDER BY $order[0] $order[1]'";
+                $ORDER = "ORDER BY $order[0] $order[1]";
             }else{
                 $ORDER = "";
             }
@@ -156,12 +195,14 @@ class db{
                 $LIMIT = "";
             }
             
-                $query = "SELECT $columnQuery FROM `$table` $WHERE $LIMIT";
-                $sql = mysql_query($query);
-                if($sql)
-                while($data = mysql_fetch_array($sql)){
+                //echo "SELECT $columnQuery FROM `$table` $WHERE $ORDER $LIMIT";
+                $query = "SELECT $columnQuery FROM `$table` $WHERE $ORDER $LIMIT";
+                
+                
+                foreach($this->pdoDB->query($query) AS $data){
                     $return[] = $data;
                 }
+                
                 if(empty($return)){
                     return "the query '$query' didn't return any results";
                 }else{
@@ -177,11 +218,10 @@ class db{
         }
         
         public function query($query){
-            $sql = mysql_query($query);
-                if($sql)
-                while($data = mysql_fetch_array($sql)){
+                foreach($this->pdoDB->query($query) AS $data){
                     $return[] = $data;
                 }
+                
                 if(empty($return)){
                     return "the query '$query' didn't return any results";
                 }else{
@@ -191,6 +231,9 @@ class db{
                         return $return;
                     }
                 }
+
+
+            return $return;
 
         }
  }
