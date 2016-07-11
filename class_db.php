@@ -44,6 +44,27 @@ class db{
         public function __destruct() {
             $this->pdoDB = null;
         }
+        public function updateConnection($host,$port,$dbname,$dbuser,$dbpassword,$charset='utf8'){
+            $this->pdoDB = new PDO('mysql:host='.$host.';port='.(int)$port.';dbname='.$dbname.';charset='.$charset, $dbuser, $dbpassword);
+        }
+        public function getDBInformation(){
+            $tables = $this->query("SHOW TABLES");
+
+            $result = array('tables'=>array());
+
+            foreach($tables AS $table){
+                $tableData = [];
+                $tableData['title'] = $table[0];
+                $tableData['columns'] = array();
+
+                $columns = $this->query('DESCRIBE '.$table[0]);
+                foreach($columns AS $column){
+                    $tableData['columns'][] = array('title'=>$column['Field'], 'type'=>$column['Type'], 'Extra'=>$column['Extra']);
+                }
+                $result['tables'][] = $tableData;
+            }
+            return $result;
+        }
         public static function escape($string){
             //@sec
             $db = new db();
