@@ -36,7 +36,7 @@ class db{
         private $pdoDB;
         public function __construct(){
             try{
-                $this->pdoDB = new PDO('mysql:host='.uni_config_database_host.';dbname='.uni_config_database_name.';charset=utf8', uni_config_database_user, uni_config_database_password);
+                $this->pdoDB = new PDO('mysql:host='.dbHost.';dbname='.db.';charset=utf8', dbUser, dbPass);
             } catch (PDOException $e) {
                 echo $e->getMessage();
             }
@@ -140,21 +140,21 @@ class db{
         *@param array $options Array with insert values mysql_field_name=>values
         *@return int auto_increment value of added record 
         */
-    public function insert($table, $options){
-                    
-            //generate update query 
-            foreach($options AS $row=>$value){
-                    $query[] = "`".escape::sql($row)."`";
-                    $values[] = "'".escape::sql($value)."'";
-            }
+        public function insert($table, $options){
+                        
+                //generate update query 
+                foreach($options AS $row=>$value){
+                        $query[] = "`".escape::sql($row)."`";
+                        $values[] = "'".escape::sql($value)."'";
+                }
 
 
-            $query = "(".implode(',', $query).")";
-            $values = "(".implode(',', $values).");";
-            
-            $result = $this->pdoDB->exec("INSERT INTO `$table` $query VALUES $values");
-            return $this->pdoDB->lastInsertId();
-    }
+                $query = "(".implode(',', $query).")";
+                $values = "(".implode(',', $values).");";
+                
+                $result = $this->pdoDB->exec("INSERT INTO `$table` $query VALUES $values");
+                return $this->pdoDB->lastInsertId();
+        }
         /**
         *Updates record with $primary[0]=$primary[1] in db $table 
         *@param string $table Name of table
@@ -258,3 +258,4 @@ class db{
 
         }
  }
+?>
