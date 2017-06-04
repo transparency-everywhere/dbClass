@@ -20,7 +20,7 @@ Initialize the class
     $addValues['title'] = 'someTitle';
     $addValues['someNumber'] = 42;
 
-    $insert_id = $bd->insert('tablename', $addValues);
+    $insert_id = $db->insert('tablename', $addValues);
 
 
 UPDATE ROW IN TABLE
